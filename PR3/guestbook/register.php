@@ -2,6 +2,9 @@
 // TODO 1: PREPARING ENVIRONMENT: 1) session 2) functions
 session_start();
 
+$aConfig = require_once __DIR__.'/config.php';
+
+
 // TODO 2: ROUTING
 if (!empty($_SESSION['auth'])) {
     header('Location: /admin.php');
@@ -18,32 +21,43 @@ if (!empty($_POST['email']) && !empty($_POST['password'])) {
 
     // 3. Check that user has already existed
     $isAlreadyRegistered = false;
-    $fileUsers = 'users.csv';
 
-    if (file_exists($fileUsers)) {
-        $sUsers = file_get_contents($fileUsers);
-        $aJsonsUsers = explode("\n", $sUsers);
+    global $aConfig;
+    $db = mysqli_connect (
+        $aConfig ['host'],
+        $aConfig ['user'],
+        $aConfig ['pass'],
+        $aConfig ['name']
+    );
+    $query = "SELECT * FROM users WHERE email LIKE '".$_POST['email']."'";
+    $dbResponse = mysqli_query ( $db , $query);
+    $result = mysqli_fetch_all ( $dbResponse);
+    mysqli_close ($db);
 
-        foreach ($aJsonsUsers as $jsonUser) {
-            $aUser = json_decode($jsonUser, true);
-            if (!$aUser) break;
+    if (!empty($result)) {
+        $isAlreadyRegistered = true;
 
-            foreach ($aUser as $email => $password) {
-                if (($email == $_POST['email']) && ($password == $_POST['password'])) {
-                    $isAlreadyRegistered = true;
-
-                    $infoMessage = "Такой пользователь уже существует! Перейдите на страницу входа. ";
-                    $infoMessage .= "<a href='/login.php'>Страница входа</a>";
-                }
-            }
-        }
+        $infoMessage = "Такой пользователь уже существует! Перейдите на страницу входа. ";
+        $infoMessage .= "<a href='/login.php'>Страница входа</a>";
     }
 
     if (!$isAlreadyRegistered) {
         // 4. Create new user
         $aNewUser = [$_POST['email'] => $_POST['password']];
-        file_put_contents("users.csv", json_encode($aNewUser) . "\n", FILE_APPEND);
+        global $aConfig;
+        $db = mysqli_connect (
+            $aConfig ['host'],
+            $aConfig ['user'],
+            $aConfig ['pass'],
+            $aConfig ['name']
+        );
+        $query = "INSERT INTO users VALUES (DEFAULT,'".$_POST['nickname']."',
+        '".$_POST['email']."',
+        '".$_POST['password']."'
+        ,NOW())";
 
+        mysqli_query( $db, $query);
+        mysqli_close ($db);
         header('Location: /login.php');
         die;
     }
@@ -77,13 +91,19 @@ if (!empty($_POST['email']) && !empty($_POST['password'])) {
         <div class="card-body">
             <form method="post">
                 <div class="form-group">
+                    <label>Nickname</label>
+                    <input class="form-control" type="text" name="nickname"/>
+                </div>
+                <div class="form-group">
                     <label>Email</label>
                     <input class="form-control" type="email" name="email"/>
                 </div>
+
                 <div class="form-group">
                     <label>Password</label>
                     <input class="form-control" type="password" name="password"/>
                 </div>
+
                 <br>
                 <div class="form-group">
                     <input type="submit" class="btn btn-primary" name="formRegister"/>
