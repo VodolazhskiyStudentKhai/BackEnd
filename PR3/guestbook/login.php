@@ -1,6 +1,7 @@
 <?php
 // TODO 1: PREPARING ENVIRONMENT: 1) session 2) functions
 session_start();
+$aConfig = require_once __DIR__.'/config.php';
 
 // TODO 2: ROUTING
 if (!empty($_SESSION['auth'])) {
@@ -20,27 +21,34 @@ if (!empty($_POST['email']) && !empty($_POST['password'])) {
     $sUsers = file_get_contents("users.csv");
     $aJsonsUsers = explode("\n", $sUsers);
 
+    global $aConfig;
+    $db = mysqli_connect (
+        $aConfig ['host'],
+        $aConfig ['user'],
+        $aConfig ['pass'],
+        $aConfig ['name']
+    );
     $isAlreadyRegistered = false;
 
-    foreach ($aJsonsUsers as $jsonUser) {
-        $aUser = json_decode($jsonUser, true);
-        if (!$aUser) break;
+    $query = "SELECT * FROM users WHERE email LIKE '".$_POST['email']."'";
+    $dbResponse = mysqli_query ( $db , $query);
+    $result = mysqli_fetch_all ( $dbResponse);
+    mysqli_close ($db);
 
-        foreach ($aUser as $email => $password) {
-            if (($email == $_POST['email']) && ($password == $_POST['password'])) {
-                $isAlreadyRegistered = true;
+    if (!empty($result)) {
+        if (($result[0][2] == $_POST['email'] && $result[0][3] != $_POST['password'])) {
+            $isAlreadyRegistered = true;
 
-                $_SESSION['auth'] = true;
-                // $_SESSION['email'] = $_POST['email'];
+            $_SESSION['auth'] = true;
+            // $_SESSION['email'] = $_POST['email'];
 
-                header("Location: admin.php");
-                die;
-            }
+            header("Location: admin.php");
+            die;
         }
     }
 
     if (!$isAlreadyRegistered) {
-        $infoMessage = "Такого пользователя не существует. Перейдите на страницу регистрации. ";
+        $infoMessage = "Неверный логин или пароль. Если вы не зарегистрированы, то перейдите на страницу регистрации";
         $infoMessage .= "<a href='register.php'>Страница регистрации</a>";
     }
 
