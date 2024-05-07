@@ -2,11 +2,22 @@
 // TODO 1: PREPARING ENVIRONMENT: 1) session 2) functions
 session_start();
 
-function write_file($arr, $filename) {
-    $jsonString = json_encode($arr); // Перетворимо масив в json -рядок
-    $fileStream = fopen ($filename , 'a'); // Відкрити (і створити) файл
-    fwrite ( $fileStream, $jsonString ."\n"); // записати json- рядок в кінець файлу
-    fclose ($fileStream ); // Закрити файл
+$aConfig = require_once __DIR__.'/config.php';
+
+function write_record($arr) {
+    global $aConfig;
+    $db = mysqli_connect (
+        $aConfig ['host'],
+        $aConfig ['user'],
+        $aConfig ['pass'],
+        $aConfig ['name']
+    );
+    $query = "INSERT INTO comments VALUES (DEFAULT,'".$arr['email']."',
+'".$arr ['name']."',
+'".$arr ['text']."'
+)";
+    mysqli_query( $db, $query);
+    mysqli_close ($db);
 }
 
 function text_to_html($data) {
@@ -15,19 +26,18 @@ function text_to_html($data) {
     return htmlspecialchars($data);  //Замена спецсимволов
 }
 
-function read_comments($filename) {
-    $comments = [];
-    if( file_exists ($filename)) { // Перевіряє, що файл існує
-        $fileStream = fopen ( $filename , "r"); // відкриває файл
-
-        while (! feof ($fileStream )) { // йде по файлу, поки не буде досягнуто кінця
-            $jsonString = fgets ($fileStream); // отримує черговий рядок файлу
-            $array = json_decode ( $jsonString , true); // Перетворює рядок в масив
-            if ( empty ($array)) break ; // якщо немає даних, то кінець файлу та зупинка
-            $comments[$array['name']] = $array['text'];
-        }
-        fclose ($fileStream ); // Закрити файл
-    }
+function read_comments() {
+    global $aConfig;
+    $db = mysqli_connect (
+        $aConfig ['host'],
+        $aConfig ['user'],
+        $aConfig ['pass'],
+        $aConfig ['name']
+    );
+    $query = "SELECT * FROM comments";
+    $dbResponse = mysqli_query ( $db , $query);
+    $comments = mysqli_fetch_all ( $dbResponse, MYSQLI_ASSOC);
+    mysqli_close ($db);
     return $comments;
 }
 
@@ -44,7 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $name = text_to_html($_POST["name"]);
         $text = text_to_html($_POST["text"]);
         $record = ['name' => $name, 'email' => $email, 'text' => $text];
-        write_file($record, $guestbook);
+        write_record($record);
     }
     else {
         echo "<p style='color: red'>Всі поля мають бути заповнені</p>";
@@ -108,9 +118,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <!-- TODO: render guestBook comments   -->
                     <?php
-                        $data = read_comments($guestbook);
-                        foreach ($data as $name => $comment) {
-                            echo "<p>".$name." залишив відгук:"."<br>".$comment."</p>";
+                        $data = read_comments();
+                        foreach ($data as $d) {
+                            echo "<p>"."<span style='color: darkorange'>".$d['name']."</span>"." залишив відгук:"."<br>".$d['text']."</p>";
                         }
                     ?>
                 </div>
